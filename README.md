@@ -3,6 +3,7 @@ User-Augmented Transformer-based Sarcasm Detector on the SARC Dataset
 
 ## Data
 The data included is the processed data from the [SARC](https://nlp.cs.princeton.edu/SARC/2.0/) dataset. `main_tok` and `pol_tok` contain tokenized versions of the data in `main` and `pol` from the SARC dataset. The data included are single posts with no ancestors, responses or information about the author of the post. Below is the structure of the data-holding variables found in the `load_data` notebook:
+![cs685data](https://user-images.githubusercontent.com/43583679/95688545-287cac00-0bd9-11eb-8868-400e9ea25a1a.png)
 
 
 ## Dependencies
