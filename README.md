@@ -1,11 +1,15 @@
 # CS685_Sarcasm
 User-Augmented Transformer-based Sarcasm Detector on the SARC Dataset
 
+## Additional JSON Data
+Link to the [subreddit](https://drive.google.com/file/d/11F3ebmz1If_330KhwV9jMnpmZCGkICOl/view?usp=sharing) dataset\
+This is a list of objects that maps 'text' to the raw post, and 'subreddit' to the originating subreddit. This contains all posts, ancestors and responses, that appear only in the unbalanced dataset.
+
 ## Accessing the Data
 Each text file contains a single line per example:\
-`example_number sarcasm_label list_of_space_tokens`\
+`example_number sarcasm_label list_of_space_separated_tokens`\
 The `user_tok` directory contains data of the format:\
-`example_number sarcasm_label user_id list_of_space_tokens`
+`example_number sarcasm_label user_id list_of_space_separated_tokens`
 
 ## Data
 **Note: There are 4 RoBERTa-tokenized posts in main_tok that exceed the 512 sequence length constraint.**\
