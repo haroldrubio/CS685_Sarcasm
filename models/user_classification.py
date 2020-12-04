@@ -13,6 +13,7 @@ from sentence_transformers import SentenceTransformer, util
 
 from transformers import BertTokenizer, BertModel
 from transformers import RobertaTokenizer, RobertaModel
+from transformers import DistilBertModel , DistilBertTokenizerFast
 import seaborn as sns
 import matplotlib.pyplot as plt
 import random
@@ -23,7 +24,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 from transformers import AdamW, get_linear_schedule_with_warmup
 from sklearn.metrics import confusion_matrix, classification_report
 batch_size = 32
-MAX_LENGTH=50
+MAX_LENGTH=64
 if torch.cuda.is_available():       
     device = torch.device("cuda")
     print(f'There are {torch.cuda.device_count()} GPU(s) available.')
@@ -44,23 +45,38 @@ parser.add_argument(
         '--modeltype',
         type=str,
         default='user',
-        choices=['user', 'uemohybrid','roberta','bert','uhybrid'],
+        choices=['uemohybrid','roberta','uhybrid','subhybrid'],
         help='Type of models [default: user]'
     )
 args = parser.parse_args()
 
-
+def correct_data_format(file_path,filename):
+    records=[]
+    # Using readlines() 
+    file1 = open(file_path + f'{filename}.txt', 'r') 
+    Lines = file1.readlines() 
+    
+    count = 0
+    # Strips the newline character 
+    for line in Lines:
+        elements= line.split()
+        reddit = " ".join(elements[3:])
+        if len(elements[3:]) > 4:
+            records.append([elements[1],elements[2],reddit])
+    df = pd.DataFrame(records, columns=['label','subreddit','reddit']) 
+    df.to_csv(file_path + f'{filename}.tsv',index=False)
 
 def read_data_from_file(file_path,test_size):
-    train_df=pd.read_csv(file_path+"/train_main_users.txt",delimiter="\t",header=None)
-    test_df=pd.read_csv(file_path+"/test_main_users.txt",delimiter="\t",header=None)
+    train_df=pd.read_csv(file_path+"/train_main_sub.tsv")
+    test_df=pd.read_csv(file_path+"/test_main_sub.tsv")
     # train_df = train_df[:20000]
     # test_df=test_df[:4000]
-    X_train=train_df[2].values
-    y_train=train_df[0].values
-    X_test=test_df[2].values
-    y_test=test_df[0].values
+    X_train=train_df['reddit'].values
+    y_train=train_df['label'].values
+    X_test=test_df['reddit'].values
+    y_test=test_df['label'].values
     print(len(y_test))
+    print(len(y_train))
     len_train=len(X_train)
     # user_names=train_df[1].unique()
     # user_names=np.unique((np.append(user_names,test_df[1].unique())))
@@ -81,7 +97,7 @@ def read_data_from_file(file_path,test_size):
     y = timeline_posts.label_coded.values
     usernums=len(timeline_posts.label_coded.unique())
     print(usernums)
-    emo_vecs = np.load(main_path+'models/saved_models/balanced_main/emo_vecs.npy')
+    emo_vecs = np.load(main_path+'models/saved_models/balanced_main/emo_vecs_preprocessed.npy')
     emo_train=emo_vecs[:len_train]
     emo_val=emo_vecs[len_train:]
 
@@ -102,10 +118,18 @@ def tokenize_input(X_train,X_val,X_test,load_dir):
     # tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
     # else:
     #     print("should be here")
-    # tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+    # PRE_TRAINED_MODEL_NAME = 'distilbert-base-uncased'
+    # tokenizer = DistilBertTokenizerFast.from_pretrained(PRE_TRAINED_MODEL_NAME)
+    # # tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
     # train_inputs, train_masks = preprocessing_for_bert(X_train,MAX_LENGTH,tokenizer)
     # val_inputs, val_masks = preprocessing_for_bert(X_val,MAX_LENGTH,tokenizer)
     # test_inputs, test_masks = preprocessing_for_bert(X_test,MAX_LENGTH,tokenizer)
+    # torch.save(train_inputs,f'{load_dir}/train_inputs.pt')
+    # torch.save(train_masks,f'{load_dir}/train_masks.pt')
+    # torch.save(val_inputs,f'{load_dir}/val_inputs.pt')
+    # torch.save(val_masks,f'{load_dir}/val_masks.pt')
+    # torch.save(test_inputs,f'{load_dir}/test_inputs.pt')
+    # torch.save(test_masks,f'{load_dir}/test_masks.pt')
     train_inputs = torch.load(f'{load_dir}/train_inputs.pt')
     train_masks=torch.load(f'{load_dir}/train_masks.pt')
     val_inputs = torch.load(f'{load_dir}/val_inputs.pt')
@@ -118,40 +142,30 @@ def tokenize_input(X_train,X_val,X_test,load_dir):
     # val_masks = val_masks[:2000][:]
     # test_inputs = test_inputs[:2000][:]
     # test_masks = test_masks[:2000][:]
-    print(train_inputs.size())
  
     return train_inputs, train_masks,val_inputs,val_masks,test_inputs, test_masks
-def get_dataloaders(y_train,y_val,y_test,train_inputs, train_masks,val_inputs, val_masks,test_inputs, test_masks,batch_size):
-    # Convert other data types to torch.Tensor
-    train_labels = torch.tensor(y_train)
-    val_labels = torch.tensor(y_val)
-    test_labels = torch.tensor(y_test)
-    train_data = TensorDataset(train_inputs, train_masks, train_labels)
-    train_sampler = RandomSampler(train_data)
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
-
-    # Create the DataLoader for our validation set
-    val_data = TensorDataset(val_inputs, val_masks, val_labels)
-    val_sampler = SequentialSampler(val_data)
-    val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=batch_size)
-    # Create the DataLoader for our test set
-    test_data = TensorDataset(test_inputs, test_masks, val_labels)
-    test_sampler = SequentialSampler(val_data)
-    test_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=batch_size)
-    return train_dataloader,val_dataloader,test_dataloader
 
 
-def load_user_model(model_path,num_user):
+def load_user_model(model_file,out_dims,model_type='uhybrid'):
     #initialize model:
-    h_dims = 512
-    out_dims=num_user
-    user_model = BertClassifier(h_dims,out_dims)
-    user_model=torch.load(model_path+'userembedding_model_single_auth.pt')
-    return user_model
+    
+    if model_type=='uhybrid':
+        h_dims = 512
+        out_dims=out_dims
+        checkpoint=torch.load(model_file)
+        pretrained_model = BertClassifier(h_dims,out_dims)
+        pretrained_model.load_state_dict(checkpoint.state_dict())
+    elif model_type=='subhybrid':
+        print("in subhybrid part")
+        pretrained_model=SubRedditClassifier(out_dims)
+        checkpoint=torch.load(model_file)
+        pretrained_model.load_state_dict(checkpoint)
+    pretrained_model.eval()
+    return pretrained_model
 
 
 learningrate = 2e-5
-def initialize_model(train_dataloader,user_model,epochs=4,lr=learningrate,emotion_aggregated=False,model='uhybrid'):
+def initialize_model(train_dataloader,user_model,rob_model,epochs=4,lr=learningrate,emotion_aggregated=False,model='uhybrid'):
     """Initialize the Bert Classifier, the optimizer and the learning rate scheduler.
     """
     h_dims=50 #hidden dimesion
@@ -160,9 +174,14 @@ def initialize_model(train_dataloader,user_model,epochs=4,lr=learningrate,emotio
     if model == 'uhybrid':
         h_dims=512
         print("initializing model..")
-        classifier = UserAugmentedClassifier(user_model,h_dims,out_dims)
-    else:
-        classifier = FinetunedClassifier(h_dims,out_dims,emo_dims)
+        classifier = UserAugmentedClassifier(user_model,rob_model,h_dims,out_dims)
+    elif model =='subhybrid':
+        h_dims=768
+        print("initializing sub model..")
+        classifier = UserAugmentedClassifier(user_model,rob_model,h_dims,out_dims)
+    elif model == 'roberta':
+        print("initializing model for roberta..")
+        classifier = Net(out_dims)
     
     # h_dims=50 #hidden dimesion
     # out_dims=2 #number of classes
@@ -208,9 +227,6 @@ def set_seed(seed_value=42):
 def train(model, train_dataloader, val_dataloader=None, epochs=4,evaluation=False):
     """Train the BertClassifier model.
     """
-
-    
-
     #early stopping
     patience = 5
     epochs_no_improve = 0
@@ -241,9 +257,9 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4,evaluation=Fals
             # Load batch to GPU
             # Zero out any previously calculated gradients
             model.zero_grad()
-            b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo, b_labels = tuple(t.to(device) for t in batch)
+            b_input_ids, b_attn_mask,b_input_ids_rob, b_attn_mask_rob,emo, b_labels = tuple(t.to(device) for t in batch)
             # Perform a forward pass. This will return logits.
-            logits = model(b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo)
+            logits = model(b_input_ids, b_attn_mask,b_input_ids_rob, b_attn_mask_rob,emo)
 
             # Compute loss and accumulate the loss values
             loss = loss_fn(logits, b_labels)
@@ -288,6 +304,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4,evaluation=Fals
             if val_loss < min_val_loss:
                 epochs_no_improve = 0
                 min_val_loss = val_loss
+                torch.save(model,"best_state.pt")
             else:
                 epochs_no_improve += 1
             # Print performance over the entire training data
@@ -323,11 +340,11 @@ def bert_predict(model, test_dataloader):
     # For each batch in our test set...
     for batch in test_dataloader:
         # Load batch to GPU
-        b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo,_ = tuple(t.to(device) for t in batch)
+        b_input_ids, b_attn_mask,b_input_ids_rob, b_attn_mask_rob,emo,_ = tuple(t.to(device) for t in batch)
 
         # Compute logits
         with torch.no_grad():
-            logits = model(b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo)
+            logits = model(b_input_ids, b_attn_mask)
         all_logits.append(logits)
     
     
@@ -351,21 +368,21 @@ def evaluate(model, val_dataloader):
 
     # Tracking variables
     val_accuracy = []
-    val_loss = []
+    total_loss = 0.
     preds=[]
     # For each batch in our validation set...
     for batch in val_dataloader:
         # Load batch to GPU
-        b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo, b_labels = tuple(t.to(device) for t in batch)
+        b_input_ids, b_attn_mask,b_input_ids_rob, b_attn_mask_rob,emo, b_labels = tuple(t.to(device) for t in batch)
         # # Perform a forward pass. This will return logits.
         # logits = model(b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2)
         # Compute logits
         with torch.no_grad():
-            logits = model(b_input_ids, b_attn_mask,b_input_ids2, b_attn_mask2,b_emo)
+            logits = model(b_input_ids, b_attn_mask,b_input_ids_rob, b_attn_mask_rob,emo)
             # Compute loss
             loss = loss_fn(logits, b_labels)
-            print("val loss:",loss)
-            val_loss.append(loss.item())
+            # print("val loss:",loss)
+            total_loss+=loss.item()
 
             # Get the predictions
         pred= torch.argmax(logits, dim=1).flatten()
@@ -375,10 +392,10 @@ def evaluate(model, val_dataloader):
         val_accuracy.append(accuracy)
 
     # Compute the average accuracy and loss over the validation set.
-    val_loss = np.mean(val_loss)
+    avg_val_loss = total_loss / len(val_dataloader)
     val_accuracy = np.mean(val_accuracy)
 
-    return val_loss, val_accuracy,preds
+    return avg_val_loss, val_accuracy,preds
 
 if __name__ == "__main__":
     main_path='/home/nazaninjafar/UMass/github_repo/CS685_Sarcasm/'
@@ -389,26 +406,39 @@ if __name__ == "__main__":
     #hyperparameters
     batch_size=32
     test_split=0.5
-    lr=1e-3
+    lr=1e-2
     save_dir_bert = '/home/nazaninjafar/UMass/github_repo/CS685_Sarcasm/models/tokenized_data/bert'
     save_dir_roberta = '/home/nazaninjafar/UMass/github_repo/CS685_Sarcasm/models/tokenized_data/roberta'
+    save_dir_distillbert=main_path+'models/tokenized_data/distillbert'
     X_train,y_train,X_val,y_val,X_test,y_test,user_nums,X_emo_train,X_emo_val,X_emo_test = read_data_from_file(main_path,test_split)
-    user_model=load_user_model(saved_model_path,user_nums)
+    if model_type=='uhybrid':
+        user_model=load_user_model(saved_model_path+'userembedding_model_single_auth.pt',user_nums,model_type=model_type)
+    elif model_type=='subhybrid':
+        user_model=load_user_model(saved_model_path+'best_model_state_last.bin',3146,model_type=model_type)
+
+    rob_model = Net(2)
+    rob_model=torch.load(main_path+'models/saved_models/robertaablation.pt')
+    rob_model.eval()
     print(len(y_val))
-    train_inputs, train_masks,val_inputs,val_masks,test_inputs, test_masks=tokenize_input(X_train,X_val,X_test,save_dir_bert)
+    train_inputs, train_masks,val_inputs,val_masks,test_inputs, test_masks=tokenize_input(X_train,X_val,X_test,save_dir_distillbert)
+    # print(train_inputs.size())
+    # print("finished saving bert based 64 max sequence length data on preprocessed data")
+    # print(stop)
     train_inputs_rob, train_masks_rob,val_inputs_rob,val_masks_rob,test_inputs_rob, test_masks_rob=tokenize_input(X_train,X_val,X_test,save_dir_roberta)
-    len_train = len(X_train)
+    # len_train = len(X_train)
 
     # Convert other data types to torch.Tensor
     train_labels = torch.tensor(y_train)
     val_labels = torch.tensor(y_val)
     test_labels = torch.tensor(y_test)
-    
+    X_emo_train = torch.tensor(X_emo_train)
+    X_emo_val = torch.tensor(X_emo_val)
+    X_emo_test = torch.tensor(X_emo_test)
 
     batch_size = 32
 
     print(train_inputs.size())
-    print(train_inputs_rob.size())
+    # print(train_inputs_rob.size())
     # Convert other data types to torch.Tensor
     train_labels = torch.tensor(y_train)
     val_labels = torch.tensor(y_val)
@@ -422,9 +452,9 @@ if __name__ == "__main__":
     val_sampler = SequentialSampler(val_data)
     val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=batch_size)
     # Create the DataLoader for our test set
-    test_data = TensorDataset(test_inputs, test_masks,test_inputs_rob, test_masks_rob,X_emo_test, val_labels)
+    test_data = TensorDataset(test_inputs, test_masks,test_inputs_rob, test_masks_rob,X_emo_test, test_labels)
     test_sampler = SequentialSampler(test_data)
-    test_dataloader = DataLoader(test_data, sampler=val_sampler, batch_size=batch_size)
+    test_dataloader = DataLoader(test_data, sampler=test_sampler, batch_size=batch_size)
     print("data loading successfully done by pytorch")
     # return train_dataloader,val_dataloader,test_dataloader
     # train_dataloader, val_dataloader, test_dataloader = get_dataloaders(y_train,y_val,y_test,train_inputs, train_masks,val_inputs, val_masks,test_inputs, test_masks, batch_size)
@@ -436,7 +466,7 @@ if __name__ == "__main__":
     print("start training .. ")
     # model_type='user'
     
-    bert_classifier, optimizer, scheduler = initialize_model(train_dataloader,user_model,epochs,lr,model=model_type)
+    bert_classifier, optimizer, scheduler = initialize_model(train_dataloader,user_model,rob_model,epochs,lr,model=model_type)
     val_acc=train(bert_classifier, train_dataloader, val_dataloader, epochs,evaluation=True)
     #     if val_acc>best_configs['max_acc']:
     #         best_configs['max_acc'] = val_acc
@@ -455,11 +485,10 @@ if __name__ == "__main__":
     # confusion_matrix(y_true, y_pred)
     tn, fp, fn, tp = confusion_matrix(y_test, np_preds).ravel()
     print("confusion matrix: ",tn,fp,fn,tp)
-    with open('misclassified_test.txt', 'a') as the_file:
-        
-        for i in range(len(y_test)):
-            if y_test[i] !=np_preds[i]:
-                the_file.write(str(i)+'\t'+X_test[i]+'\n')
+    # with open('misclassified_test.txt', 'a') as the_file:
+    #     for i in range(len(y_test)):
+    #         if y_test[i] !=np_preds[i]:
+    #             the_file.write(str(i)+'\t'+X_test[i]+'\n')
     # the_file.close()
     # #     if val_acc>best_configs['max_acc']:
     # #         best_configs['max_acc'] = val_acc
@@ -473,4 +502,4 @@ if __name__ == "__main__":
     # np_preds=np_preds.astype(int) 
     # class_names = ['sarcastic', 'not sarcastic']
     # print(classification_report(y_test, np_preds, target_names=class_names))
-    # torch.save(bert_classifier,f'{main_path}/models/saved_models/{model_type}ablation.pt')
+    torch.save(bert_classifier,f'{main_path}/models/saved_models/{model_type}.pt')
