@@ -25,3 +25,10 @@ External Dependencies: nltk, transformers, np, matplotlib \
 Download main and pol folders [here](https://nlp.cs.princeton.edu/SARC/2.0/) to look further into the data and to reproduce the included data.\
 \
 (Optional) Download a GLoVE embedding from: https://nlp.stanford.edu/projects/glove/ and modify the variable at the top of the notebook depending on the embedding you choose
+# Models
+For our hybrid model we first pretrain a user classification model. The code for this part is accessible in `models\ubert.py`. 
+In this project we defined several classifiers which each of them is also accessble in `models\classifier.py`. 
+Our main training code of hybrid model is in `models/main.py`. 
+To run this code for `user  embedding` use this command below: 
+`main.py --modeltype uhybrid --epoch 10` 
+And to run this code for `subreddit embedding` use `--modeltype subybrid`. 
