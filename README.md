@@ -23,7 +23,7 @@ Pictured above: the distributions of posts per author (**left**) and the distrib
 Number of posts: 321,748 posts \
 Vocabulary size (using the NLTK tokenizer): 145,542 words \
 Average post length: 10 tokens across both sarcastic and non-sarcastic \
-Percentage of users with 10 or more posts: 7.35%
+Percentage of users with 10 or more posts: 7.35%\
 Percentage of subreddits with 10 or more posts: 43.17%
 
 ## Dependencies
