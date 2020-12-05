@@ -42,3 +42,6 @@ And to run this code for `subreddit embedding` use `--modeltype subybrid`.
 
 ## Emotion vectorization
 Emotion embedding model code is accessible in ``emotion_vectorization.ipynb``. It is a one time running code meaning that we got our representations and saved it in ``emo_vecs.npy``. After downloading our data you can use this code to create emotion vectors.
+
+## SubReddit classification
+Subreddit classification can be found in ``SubReddit-Classifier.ipynb``. We checkpoint the model trained here and later use it in our code.
