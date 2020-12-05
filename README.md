@@ -17,7 +17,14 @@ The data included is the processed data from the [SARC](https://nlp.cs.princeton
 Reddit posts appear in pairs: odd numbered posts are children of the preceeding even-numbered post.\
 Below is the structure of the data-holding variables found in the `load_data` notebook, and the structure of the data in `main_tok` and `pol_tok`:
 ![cs685data](https://user-images.githubusercontent.com/43583679/99214836-3658ba80-279f-11eb-9cef-979076559a60.png)
-
+![data_figs](https://user-images.githubusercontent.com/43583679/101230563-0d2b9b80-3674-11eb-805d-c3d4d9420426.png)
+Pictured above: the distributions of posts per author (**left**) and the distributions of posts per subreddit (**right**)
+### Basic Dataset Statistics
+Number of posts: 321,748 posts \
+Vocabulary size (using the NLTK tokenizer): 145,542 words \
+Average post length: 10 tokens across both sarcastic and non-sarcastic \
+Percentage of users with 10 or more posts: 7.35%
+Percentage of subreddits with 10 or more posts: 43.17%
 
 ## Dependencies
 External Dependencies: nltk, transformers, np, matplotlib \
