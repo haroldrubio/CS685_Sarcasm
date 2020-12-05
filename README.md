@@ -32,3 +32,6 @@ Our main training code of hybrid model is in `models/main.py`. \
 To run this code for `user  embedding` use this command below: \
 `main.py --modeltype uhybrid --epoch 10` \
 And to run this code for `subreddit embedding` use `--modeltype subybrid`. 
+
+## Emotion vectorization
+Emotion embedding model code is accessible in ``emotion_vectorization.ipynb``. It is a one time running code meaning that we got our representations and saved it in ``emo_vecs.npy``. After downloading our data you can use this code to create emotion vectors.
